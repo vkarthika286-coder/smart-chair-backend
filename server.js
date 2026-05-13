@@ -207,7 +207,7 @@ app.get("/chairs", (req, res) => {
   res.redirect("/api/chairs")
 })
 
-startSensorSimulation()
+//startSensorSimulation()
 
 const PORT = process.env.PORT || 5000
 app.get("/", (req, res) => {
