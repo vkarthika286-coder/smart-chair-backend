@@ -138,7 +138,102 @@ app.post("/assign-chair", (req, res) => {
     res.json({ message: "Chair assigned successfully" })
   })
 })
+// Add employee with auto-generated IDs
+app.post("/employees", (req, res) => {
+  const {
+    name,
+    email,
+    department,
+    chair_id
+  } = req.body
 
+  // Get latest employee
+  const getLastSql = `
+    SELECT * FROM employees
+    ORDER BY id DESC
+    LIMIT 1
+  `
+
+  db.query(getLastSql, (err, results) => {
+    if (err) {
+      console.log(err)
+      return res.status(500).json({
+        error: "Database error"
+      })
+    }
+
+    let nextNumber = 1
+
+    if (results.length > 0) {
+      const lastEmp = results[0]
+
+      const lastEmpNumber = parseInt(
+        lastEmp.employee_id.replace("EMP", "")
+      )
+
+      nextNumber = lastEmpNumber + 1
+    }
+
+    const employee_id = `EMP${String(nextNumber).padStart(3, "0")}`
+    const rfid_id = `RFID${String(nextNumber).padStart(3, "0")}`
+
+    // Check chair already assigned
+    const checkChairSql = `
+      SELECT * FROM employees
+      WHERE chair_id = ?
+    `
+
+    db.query(checkChairSql, [chair_id], (checkErr, existing) => {
+      if (checkErr) {
+        console.log(checkErr)
+        return res.status(500).json({
+          error: "Database error"
+        })
+      }
+
+      if (existing.length > 0) {
+        return res.status(409).json({
+          error: "Chair already assigned"
+        })
+      }
+
+      // Insert employee
+      const insertSql = `
+        INSERT INTO employees
+        (employee_id, name, email, department, rfid_id, chair_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `
+
+      db.query(
+        insertSql,
+        [
+          employee_id,
+          name,
+          email,
+          department,
+          rfid_id,
+          chair_id
+        ],
+        (insertErr, result) => {
+          if (insertErr) {
+            console.log(insertErr)
+
+            return res.status(500).json({
+              error: "Failed to add employee"
+            })
+          }
+
+          res.json({
+            message: "Employee added successfully",
+            employee_id,
+            rfid_id,
+            id: result.insertId
+          })
+        }
+      )
+    })
+  })
+})
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
