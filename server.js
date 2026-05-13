@@ -42,6 +42,7 @@ app.get("/employees", (req, res) => {
 })
 
 // Get Single Employee
+// Get all employees
 app.get("/employees", (req, res) => {
   db.query("SELECT * FROM employees", (err, results) => {
     if (err) {
@@ -53,7 +54,16 @@ app.get("/employees", (req, res) => {
   })
 })
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+// Get single employee
+app.get("/employees/:id", (req, res) => {
+  const sql = "SELECT * FROM employees WHERE id = ?"
+
+  db.query(sql, [req.params.id], (err, results) => {
+    if (err) {
+      console.log(err)
+      return res.status(500).json({ error: "Database error" })
+    }
+
+    res.json(results[0])
+  })
 })
