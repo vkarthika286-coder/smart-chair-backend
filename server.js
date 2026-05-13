@@ -41,13 +41,18 @@ app.get("/employees/:id", (req, res) => {
   })
 })
 
-// Add employee with auto employee_id and rfid_id
+// Add employee
 app.post("/employees", (req, res) => {
-  const { name, department, height, weight, chair_id } = req.body
+  const name = req.body.name || req.body.employeeName
+  const department = req.body.department
+  const height = req.body.height || null
+  const weight = req.body.weight || null
+  const chair_id = req.body.chair_id || req.body.chairId
 
   if (!name || !department || !chair_id) {
     return res.status(400).json({
-      error: "Name, department and chair ID are required"
+      error: "Name, department and chair ID are required",
+      received: req.body
     })
   }
 
@@ -74,20 +79,17 @@ app.post("/employees", (req, res) => {
     const employee_id = `EMP${String(nextNumber).padStart(3, "0")}`
     const rfid_id = `RFID${String(nextNumber).padStart(3, "0")}`
 
-    const checkSql = `
-      SELECT * FROM employees 
-      WHERE employee_id = ? OR rfid_id = ? OR chair_id = ?
-    `
+    const checkSql = "SELECT * FROM employees WHERE chair_id = ?"
 
-    db.query(checkSql, [employee_id, rfid_id, chair_id], (checkErr, existing) => {
+    db.query(checkSql, [chair_id], (checkErr, existing) => {
       if (checkErr) {
-        console.log("Duplicate check error:", checkErr)
+        console.log("Chair check error:", checkErr)
         return res.status(500).json({ error: "Database error" })
       }
 
       if (existing.length > 0) {
         return res.status(409).json({
-          error: "Employee ID, RFID ID or Chair ID already exists"
+          error: "Chair ID already assigned"
         })
       }
 
@@ -134,7 +136,8 @@ app.get("/chairs", (req, res) => {
 
 // Assign chair
 app.post("/assign-chair", (req, res) => {
-  const { employee_id, chair_id } = req.body
+  const employee_id = req.body.employee_id || req.body.employeeId
+  const chair_id = req.body.chair_id || req.body.chairId
 
   const sql = "UPDATE employees SET chair_id = ? WHERE employee_id = ?"
 
