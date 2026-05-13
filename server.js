@@ -210,7 +210,9 @@ app.get("/chairs", (req, res) => {
 startSensorSimulation()
 
 const PORT = process.env.PORT || 5000
-
+app.get("/", (req, res) => {
+  res.send("Smart Chair Backend is running")
+})
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT)
 })
