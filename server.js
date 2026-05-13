@@ -29,9 +29,9 @@ app.get("/employees", (req, res) => {
 
 // Get single employee
 app.get("/employees/:id", (req, res) => {
-  const sql = "SELECT * FROM employees WHERE employee_id = ?"
+  const sql = "SELECT * FROM employees WHERE id = ? OR employee_id = ?"
 
-  db.query(sql, [req.params.id], (err, results) => {
+  db.query(sql, [req.params.id, req.params.id], (err, results) => {
     if (err) {
       console.log("Employee error:", err)
       return res.status(500).json({ error: "Database error" })
@@ -44,23 +44,22 @@ app.get("/employees/:id", (req, res) => {
 // Add employee
 app.post("/employees", (req, res) => {
   const name = req.body.name || req.body.employeeName
-  const department = req.body.department || null
-  const height_cm = req.body.height_cm || req.body.height || null
-  const weight_kg = req.body.weight_kg || req.body.weight || null
-  const assigned_chair_id =
-    req.body.assigned_chair_id || req.body.chair_id || req.body.chairId || null
+  const department = req.body.department
+  const height = req.body.height || null
+  const weight = req.body.weight || null
+  const chair_id = req.body.chair_id || req.body.chairId
 
-  if (!name) {
+  if (!name || !department || !chair_id) {
     return res.status(400).json({
-      error: "Employee name is required",
+      error: "Name, department and chair ID are required",
       received: req.body
     })
   }
 
   const lastSql = `
-    SELECT employee_id
-    FROM employees
-    ORDER BY CAST(SUBSTRING(employee_id, 4) AS UNSIGNED) DESC
+    SELECT employee_id 
+    FROM employees 
+    ORDER BY id DESC 
     LIMIT 1
   `
 
@@ -74,69 +73,81 @@ app.post("/employees", (req, res) => {
 
     if (results.length > 0 && results[0].employee_id) {
       const lastNumber = parseInt(results[0].employee_id.replace("EMP", ""))
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1
-      }
+      nextNumber = lastNumber + 1
     }
 
     const employee_id = `EMP${String(nextNumber).padStart(3, "0")}`
-    const rfid_tag = `RFID${String(nextNumber).padStart(3, "0")}`
+    const rfid_id = `RFID${String(nextNumber).padStart(3, "0")}`
 
-    const checkSql = `
-      SELECT * FROM employees
-      WHERE employee_id = ? OR rfid_tag = ? OR assigned_chair_id = ?
-    `
+    const checkSql = "SELECT * FROM employees WHERE chair_id = ?"
 
-    db.query(
-      checkSql,
-      [employee_id, rfid_tag, assigned_chair_id],
-      (checkErr, existing) => {
-        if (checkErr) {
-          console.log("Duplicate check error:", checkErr)
-          return res.status(500).json({ error: "Database error" })
-        }
+    db.query(checkSql, [chair_id], (checkErr, existing) => {
+      if (checkErr) {
+        console.log("Chair check error:", checkErr)
+        return res.status(500).json({ error: "Database error" })
+      }
 
-        if (existing.length > 0) {
-          return res.status(409).json({
-            error: "Employee ID, RFID tag or Chair ID already exists"
-          })
-        }
+      if (existing.length > 0) {
+        return res.status(409).json({
+          error: "Chair ID already assigned"
+        })
+      }
 
-        const insertSql = `
-          INSERT INTO employees
-          (employee_id, name, rfid_tag, department, height_cm, weight_kg, assigned_chair_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `
+      const insertSql = `
+        INSERT INTO employees 
+        (employee_id, rfid_id, name, department, height, weight, chair_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `
 
-        db.query(
-          insertSql,
-          [
-            employee_id,
-            name,
-            rfid_tag,
-            department,
-            height_cm,
-            weight_kg,
-            assigned_chair_id
-          ],
-          (insertErr) => {
-            if (insertErr) {
-              console.log("Add employee error:", insertErr)
-              return res.status(500).json({
-                error: "Failed to add employee"
-              })
-            }
-
-            res.json({
-              message: "Employee added successfully",
-              employee_id,
-              rfid_tag,
-              assigned_chair_id
+      db.query(
+        insertSql,
+        [employee_id, rfid_id, name, department, height, weight, chair_id],
+        (insertErr, result) => {
+          if (insertErr) {
+            console.log("Add employee error:", insertErr)
+            return res.status(500).json({
+              error: "Failed to add employee"
             })
           }
-        )
-      }
-    )
+
+          res.json({
+            message: "Employee added successfully",
+            id: result.insertId,
+            employee_id,
+            rfid_id
+          })
+        }
+      )
+    })
+  })
+})
+
+// Get chairs
+app.get("/chairs", (req, res) => {
+  db.query("SELECT * FROM chairs", (err, results) => {
+    if (err) {
+      console.log("Chairs error:", err)
+      return res.status(500).json({ error: "Database error" })
+    }
+
+    res.json(results)
+  })
+})
+
+// Assign chair
+app.post("/assign-chair", (req, res) => {
+  const employee_id = req.body.employee_id || req.body.employeeId
+  const chair_id = req.body.chair_id || req.body.chairId
+
+  const sql = "UPDATE employees SET chair_id = ? WHERE employee_id = ?"
+
+  db.query(sql, [chair_id, employee_id], (err) => {
+    if (err) {
+      console.log("Assign chair error:", err)
+      return res.status(500).json({ error: "Database error" })
+    }
+
+    res.json({ message: "Chair assigned successfully" })
   })
 })
 
