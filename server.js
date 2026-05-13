@@ -42,18 +42,14 @@ app.get("/employees", (req, res) => {
 })
 
 // Get Single Employee
-app.get("/employees/:id", (req, res) => {
-  const sql = "SELECT * FROM employees WHERE id = ?"
-
-  db.query(sql, [req.params.id], (err, results) => {
+app.get("/employees", (req, res) => {
+  db.query("SELECT * FROM employees", (err, results) => {
     if (err) {
       console.log(err)
-      res.status(500).json({
-        error: "Database error"
-      })
-    } else {
-      res.json(results[0])
+      return res.status(500).json({ error: "Database error" })
     }
+
+    res.json(results)
   })
 })
 
